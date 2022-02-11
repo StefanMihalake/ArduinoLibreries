@@ -97,12 +97,16 @@ void Dimmer::Start()
         if (maxReach == true)
         {
           count = count - newCount;
-          //Serial.println(count);
+          Serial.print("set*");
+          Serial.print(String(_id) + "*");
+          Serial.println(String(count / _max * 100, 0));
         }
         else
         {
           count = count + newCount;
-          //Serial.println(count);
+          Serial.print("set*");
+          Serial.print(String(_id) + "*");
+          Serial.println(String(count / _max * 100, 0));
         }
 
         if (count <= _min)
@@ -130,10 +134,16 @@ void Dimmer::Start()
       {
         lastLedState = count;
         count = 0;
+        Serial.print("set*");
+        Serial.print(String(_id) + "*");
+        Serial.println(String(count / _max * 100, 0));
       }
       else
       {
         count = lastLedState;
+        Serial.print("set*");
+        Serial.print(String(_id) + "*");
+        Serial.println(String(count / _max * 100, 0));
       }
     }
   }
@@ -143,10 +153,8 @@ void Dimmer::Start()
   //while ((millis() - startLoop) < loopInterval) {}
 }
 
-void Dimmer::ReadSerial(String line)
+void Dimmer::ReadSerial(String com, String dim)
 {
-  String com = line.substring(0, 3); // take the first 3 char
-
   if (com == "off")
   {
     count = 0;
@@ -157,10 +165,10 @@ void Dimmer::ReadSerial(String line)
   }
   if (com == "dim")
   {
-    int c = line.substring(4, 7).toInt() * _max / 100;
+    int c = dim.toInt() * _max / 100;
     if (c > _max)
     {
-      Serial.println("WARNING: max passed");
+      //Serial.println("WARNING: max passed");
       count = _max;
     }
     else
@@ -171,7 +179,7 @@ void Dimmer::ReadSerial(String line)
   if (com == "get")
   {
     int c = count / _max * 100;
-    Serial.println("id " + String(_id) + " " + String(count/_max*100, 0));
+    Serial.println("get*" + String(_id) + "*" + String(count / _max * 100, 0));
   }
   // }
 }
@@ -180,17 +188,29 @@ void Dimmer::ReadSerial(String line)
 
 void Orchestrator::Start(Dimmer dimmers[])
 {
-
   if (Serial.available())
   {
     String line = Serial.readStringUntil('\n'); // take the incoming message til find the ENTER button
-    int id = line.substring(0, 1).toInt();
-    String com = line.substring(2, 9);
-    for (int i = 0; i < sizeof(dimmers); i++)
+    SplitString(line, '*');
+    if (first == "ids")
     {
-      if (dimmers[i]._id == id)
+      String idString = "ids*";
+      for (int i = 0; i < sizeof(dimmers); i++)
       {
-        dimmers[i].ReadSerial(com);
+        idString += (String)dimmers[i]._id + "*";
+      }
+      idString = idString.substring(0, idString.length() - 1);
+      Serial.println(idString);
+    }
+    else
+    {
+      int id = first.toInt();
+      for (int i = 0; i < sizeof(dimmers); i++)
+      {
+        if (dimmers[i]._id == id)
+        {
+          dimmers[i].ReadSerial(second, third);
+        }
       }
     }
   }
@@ -198,5 +218,31 @@ void Orchestrator::Start(Dimmer dimmers[])
   for (int i = 0; i < sizeof(dimmers); i++)
   {
     dimmers[i].Start();
+  }
+}
+
+void Orchestrator::SplitString(String str, char sep)
+{
+  int index = str.indexOf(sep);
+  if (index >= 0)
+  {
+    first = str.substring(0, index);
+    int index2 = str.indexOf(sep, index + 1);
+    if (index2 != -1)
+    {
+      second = str.substring(index + 1, index2);
+      third = str.substring(index2 + 1);
+    }
+    else
+    {
+      second = str.substring(index + 1);
+      third = "";
+    }
+  }
+  else
+  {
+    first = str;
+    second = "";
+    third = "";
   }
 }

@@ -67,7 +67,7 @@ class Dimmer{
 
     Dimmer(int id, int bPin, int ledPin, int minVal, int maxVal, unsigned long dimTemp, unsigned long dimDelay);
     void Start();
-    void ReadSerial(String comand);
+    void ReadSerial(String comand, String dim="");
     void Ciao(String ciao);
     int _id;
 };
@@ -77,8 +77,12 @@ class Dimmer{
 
 class Orchestrator {
   private:
+  String first;
+  String second;
+  String third;
   unsigned long s;
     //String line;
+    void SplitString(String str, char sep);
   public:
     void Start(Dimmer dimmers[]);
 };
