@@ -56,6 +56,7 @@ public:
 class Orchestrator
 {
 private:
+  int _deviceId;
   int _startCoil;
   int _startHReg;
   int _startIReg;

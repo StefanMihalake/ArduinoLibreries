@@ -168,11 +168,12 @@ bool Dimmer::SetOnOff(int on, int off)
 
 Orchestrator::Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg)
 {
+  _deviceId = idDispositivo;
   _startCoil = startCoil;
   _startHReg = startHReg;
   _startIReg = startIReg;
   _startDIReg = startDIReg;
-  if (!ModbusRTUServer.begin(idDispositivo, comPort))
+  if (!ModbusRTUServer.begin(_deviceId, comPort))
   {
     Serial.println("Failed to start Modbus RTU Server!");
     while (1)
