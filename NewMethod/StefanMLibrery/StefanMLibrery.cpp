@@ -105,6 +105,7 @@ void Dimmer::SetMinMax(int min, int max)
     _max = max;
     lastMax = max;
   }
+
 }
 
 
@@ -166,13 +167,14 @@ bool Dimmer::SetOnOff(int on, int off)
 
 //======================== ORCHESTRATOR COSTRUCTOR =====================
 
-Orchestrator::Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg)
+Orchestrator::Orchestrator(int idDispositivo,int numeroDevice, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg, int startIDIReg)
 {
   _deviceId = idDispositivo;
   _startCoil = startCoil;
   _startHReg = startHReg;
   _startIReg = startIReg;
   _startDIReg = startDIReg;
+  _startIDIReg = startIDIReg;
   if (!ModbusRTUServer.begin(_deviceId, comPort))
   {
     Serial.println("Failed to start Modbus RTU Server!");
@@ -181,23 +183,32 @@ Orchestrator::Orchestrator(int idDispositivo, int comPort, int itemNumber, int s
   }
   ModbusRTUServer.configureCoils(startCoil, itemNumber * 2);
   ModbusRTUServer.configureHoldingRegisters(startHReg, itemNumber * 3);
-  ModbusRTUServer.configureInputRegisters(startIReg, itemNumber);
+  ModbusRTUServer.configureInputRegisters(startIReg, itemNumber * 3);
   ModbusRTUServer.configureDiscreteInputs(startDIReg, itemNumber);
+  ModbusRTUServer.configureInputRegisters(_startIDIReg, itemNumber);
 }
 
 //========================= SERIAL MANAGER =============================
 
 void Orchestrator::Start(Dimmer dimmers[])
 {
+  for (int i = 0; i < sizeof(dimmers); i++)
+  {
+    ModbusRTUServer.inputRegisterWrite(_startIDIReg + i, dimmers[i]._id);
+  }
+  
   ModbusRTUServer.poll();
 
   // SET MIN OR MAX
   int holdingIndex2 = _startHReg;
+  int inputRegIDstart = _startIDIReg;
   for (int i = 0; i < sizeof(dimmers); i++)
   {
     int m = ModbusRTUServer.holdingRegisterRead(holdingIndex2);
     int M = ModbusRTUServer.holdingRegisterRead(holdingIndex2 + 1);
     dimmers[i].SetMinMax(m, M);
+    ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);
+    ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);
     holdingIndex2 += 3;
   }
 
@@ -235,8 +246,8 @@ void Orchestrator::Start(Dimmer dimmers[])
   for (int i = 0; i < sizeof(dimmers); i++)
   {
     int mdim = (int)ModbusRTUServer.holdingRegisterRead(holdingIndex1+2);          // read the dim register
-    int setDim = dimmers[i].SetDim(mdim);                                     // set the dim
-    ModbusRTUServer.holdingRegisterWrite(holdingIndex1+2, 0);                     // set 0 the dim register
+    int setDim = dimmers[i].SetDim(mdim);                                          // set the dim
+    ModbusRTUServer.holdingRegisterWrite(holdingIndex1+2, 0);                      // set 0 the dim register
 
     ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);                   // update the user interface with brightness value
     if (setDim != 0)

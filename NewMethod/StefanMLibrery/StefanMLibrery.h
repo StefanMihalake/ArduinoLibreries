@@ -61,9 +61,10 @@ private:
   int _startHReg;
   int _startIReg;
   int _startDIReg;
+  int _startIDIReg;
 
 public:
-  Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg);
+  Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg, int startIDIReg);
   void Start(Dimmer dimmers[]);
 };
 
