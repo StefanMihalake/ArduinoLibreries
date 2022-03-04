@@ -1,4 +1,7 @@
 #include "StefanMLibrery.h"
+#ifdef __AVR__
+ #include <avr/power.h> 
+#endif
 
 Dimmer::Dimmer(int id, int bPin, int ledPin, int minVal, int maxVal, unsigned long dimTemp, unsigned long dimDelay)
 {
@@ -88,13 +91,13 @@ void Dimmer::Start()
   // while ((millis() - startLoop) < loopInterval) {}
 }
 
-//====================== SET MIN AND MAX TO LED FROM MODBUSS METHOD =============== 
+//====================== SET MIN AND MAX TO LED FROM MODBUSS =============== 
 
 void Dimmer::SetMinMax(int min, int max)
 {
   int lastMax;
   int lastMin;
-
+  
   if (min != _min && min != lastMin)
   {
     _min = min;
@@ -105,15 +108,13 @@ void Dimmer::SetMinMax(int min, int max)
     _max = max;
     lastMax = max;
   }
-
 }
 
-
-//====================== SET DIM FROM MODBUSS METHOD =============== 
+//====================== SET DIM FROM MODBUSS =============== 
 
 int Dimmer::SetDim(int modDim)
 {
-  if (modDim <= _max && modDim > 0 && dim == false)
+  if (modDim <= _max && modDim >= _min && dim == false)
   {
     if (modDim != lastLedState)
     {
@@ -165,59 +166,55 @@ bool Dimmer::SetOnOff(int on, int off)
 }
 
 
+
 //======================== ORCHESTRATOR COSTRUCTOR =====================
 
-Orchestrator::Orchestrator(int idDispositivo,int numeroDevice, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg, int startIDIReg)
+Orchestrator::Orchestrator(int idDispositivo, int comPort, int ledNumber, int startCoil, int startHReg, int startIReg, int startDIReg)
 {
   _deviceId = idDispositivo;
   _startCoil = startCoil;
   _startHReg = startHReg;
   _startIReg = startIReg;
   _startDIReg = startDIReg;
-  _startIDIReg = startIDIReg;
+
   if (!ModbusRTUServer.begin(_deviceId, comPort))
   {
     Serial.println("Failed to start Modbus RTU Server!");
-    while (1)
-      ;
+    while (1);
   }
-  ModbusRTUServer.configureCoils(startCoil, itemNumber * 2);
-  ModbusRTUServer.configureHoldingRegisters(startHReg, itemNumber * 3);
-  ModbusRTUServer.configureInputRegisters(startIReg, itemNumber * 3);
-  ModbusRTUServer.configureDiscreteInputs(startDIReg, itemNumber);
-  ModbusRTUServer.configureInputRegisters(_startIDIReg, itemNumber);
+  
+  ModbusRTUServer.configureCoils(startCoil, ledNumber * 2);
+  ModbusRTUServer.configureHoldingRegisters(startHReg, ledNumber * 3);
+  ModbusRTUServer.configureInputRegisters(startIReg, ledNumber * 3);
+  ModbusRTUServer.configureDiscreteInputs(startDIReg, ledNumber);
 }
 
 //========================= SERIAL MANAGER =============================
 
 void Orchestrator::Start(Dimmer dimmers[])
 {
-  for (int i = 0; i < sizeof(dimmers); i++)
-  {
-    ModbusRTUServer.inputRegisterWrite(_startIDIReg + i, dimmers[i]._id);
-  }
-  
   ModbusRTUServer.poll();
+
 
   // SET MIN OR MAX
   int holdingIndex2 = _startHReg;
-  int inputRegIDstart = _startIDIReg;
-  for (int i = 0; i < sizeof(dimmers); i++)
+  int startInputReg = _startIReg;
+  for (int i = 0; i < sizeof(dimmers) + 1; i++)
   {
-    int m = ModbusRTUServer.holdingRegisterRead(holdingIndex2);
-    int M = ModbusRTUServer.holdingRegisterRead(holdingIndex2 + 1);
+    int m = ModbusRTUServer.holdingRegisterRead(holdingIndex2);         // read min value 
+    int M = ModbusRTUServer.holdingRegisterRead(holdingIndex2 + 1);     // read max value
     dimmers[i].SetMinMax(m, M);
-    ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);
-    ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);
+    ModbusRTUServer.inputRegisterWrite(startInputReg + 1 + i, m);       // update user interface
+    ModbusRTUServer.inputRegisterWrite(startInputReg + 2 + i, M);       // update user interface
     holdingIndex2 += 3;
+    startInputReg += 2;
   }
-
 
 
   // PASSO PASSO DA MODBUS
   int coilIndex = _startCoil;
   int discretIndex = _startDIReg;
-  for (int i = 0; i < sizeof(dimmers); i++)
+  for (int i = 0; i < sizeof(dimmers) + 1; i++)
   {
     int coilOn = ModbusRTUServer.coilRead(coilIndex);                     // read ON value from coil
     int coilOff = ModbusRTUServer.coilRead(coilIndex + 1);                // read OFF value from coil
@@ -238,15 +235,14 @@ void Orchestrator::Start(Dimmer dimmers[])
   }
 
 
-
   // DIM DA MODBUS
   int holdingIndex1 = _startHReg;
   int inputIndex1 = _startIReg;
   int discretIndex1 = _startDIReg;
-  for (int i = 0; i < sizeof(dimmers); i++)
+  for (int i = 0; i < sizeof(dimmers) + 1; i++)
   {
     int mdim = (int)ModbusRTUServer.holdingRegisterRead(holdingIndex1+2);          // read the dim register
-    int setDim = dimmers[i].SetDim(mdim);                                          // set the dim
+    int setDim = dimmers[i].SetDim(mdim);                                           // set the dim
     ModbusRTUServer.holdingRegisterWrite(holdingIndex1+2, 0);                      // set 0 the dim register
 
     ModbusRTUServer.inputRegisterWrite(inputIndex1, setDim);                   // update the user interface with brightness value
@@ -255,7 +251,7 @@ void Orchestrator::Start(Dimmer dimmers[])
       ModbusRTUServer.discreteInputWrite(discretIndex1, true);                   // update the user interface led status
     }
     holdingIndex1 += 3;
-    inputIndex1 += 1;
+    inputIndex1 += 3;
     discretIndex1 += 1;
   }
   holdingIndex1 = 0;
@@ -263,10 +259,8 @@ void Orchestrator::Start(Dimmer dimmers[])
   discretIndex1 = 0;
 
 
-
-
   // BUTTON LOOP START
-  for (int i = 0; i < sizeof(dimmers); i++)
+  for (int i = 0; i <= sizeof(dimmers); i++)
   {
     dimmers[i].Start();
   }

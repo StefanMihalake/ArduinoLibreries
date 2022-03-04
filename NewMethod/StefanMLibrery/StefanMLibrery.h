@@ -5,7 +5,6 @@
 #include <ArduinoRS485.h> // ArduinoModbus depends on the ArduinoRS485 library
 #include <ArduinoModbus.h>
 
-
 class Dimmer
 {
 private:
@@ -41,14 +40,14 @@ private:
   unsigned long t1 = 0;
 
 public:
+  int _id;
   int _ledPin;
-  Dimmer(int id, int bPin, int ledPin, int minVal, int maxVal, unsigned long dimTemp, unsigned long dimDelay);
+  Dimmer(int idDispositivo, int bPin, int ledPin, int minVal, int maxVal, unsigned long dimTemp, unsigned long dimDelay);
   void Start();
   void ReadSerial(String comand, String dim = "");
   void SetMinMax(int min, int max);
   bool SetOnOff(int on, int off);
   int SetDim(int dim);
-  int _id;
 };
 
 //======================================================================================
@@ -64,7 +63,7 @@ private:
   int _startIDIReg;
 
 public:
-  Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg, int startIDIReg);
+  Orchestrator(int idDispositivo, int comPort, int itemNumber, int startCoil, int startHReg, int startIReg, int startDIReg);
   void Start(Dimmer dimmers[]);
 };
 
